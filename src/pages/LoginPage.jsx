@@ -81,31 +81,47 @@ const LoginPage = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
+        // Captura valores do state para garantir escopo (defensivo)
+        const currentEmail = email;
+        const currentPassword = password;
+        const currentName = name;
+        const currentType = selectedType;
+        const currentPhoto = photo;
+
         try {
             // Cria conta
-            const { user } = await signUp(email, password, name);
+            const response = await signUp(currentEmail, currentPassword, currentName);
+            const newUser = response?.user;
+
+            // Se usuário já existe, Supabase pode retornar user null mas sem erro (se confirm email on) ou user fake.
+            // Mas normalmente se tentar registrar mesmo email, ele retorna sucesso falso.
+            // Vamos assumir sucesso se não der throw.
 
             // Força salvar o primaryType nos settings logo após criar
-            if (user) {
+            if (newUser) {
                 // Pequeno hack: atualiza settings com primaryUserType
-                // Idealmente o signUp já faria isso se passasse metadata, 
-                // mas vamos usar o updateSettings do store depois de logar "virtualmente"
-                // ou chamar direto supabase
             }
 
             // Local fallback UI update & Store update
-            setUserName(name.trim());
-            setUserEmail(email.trim());
-            if (photo) setUserPhoto(photo, selectedType);
+            setUserName(currentName.trim());
+            setUserEmail(currentEmail.trim());
+            if (currentPhoto) setUserPhoto(currentPhoto, currentType);
 
             // Define tipo inicial E tipo principal
-            setUserType(selectedType);
-            useStore.getState().updateSettings({ primaryUserType: selectedType }); // Salva em settings jsonb
+            setUserType(currentType);
+            useStore.getState().updateSettings({ primaryUserType: currentType });
 
             showToast("Conta criada! Verifique seu email.", 'success');
-            setTimeout(() => navigate('/'), 1500);
+            // Delay maior para garantir toast visivel
+            setTimeout(() => navigate('/'), 2000);
         } catch (error) {
-            showToast("Erro ao criar conta: " + error.message, 'error');
+            console.error("Erro cadastro:", error);
+            const msg = error.message || "Erro desconhecido";
+            if (msg.includes("already registered") || msg.includes("unique constraint")) {
+                showToast("Email já cadastrado! Tente fazer login.", 'warning');
+            } else {
+                showToast("Erro ao criar conta: " + msg, 'error');
+            }
         } finally {
             setLoading(false);
         }

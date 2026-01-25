@@ -8,3 +8,5 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Build ID: 2026-01-25-FIX-EMAIL-REF-ERROR-V2
