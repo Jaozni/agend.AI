@@ -1,26 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { UserCircle, Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, User } from 'lucide-react';
+import { Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, Lock, User, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
-    const { setUserName, setUserType, setUserEmail, setUserPhoto, lastUserProfile, logout } = useStore();
+    const { setUserName, setUserType, setUserEmail, setUserPhoto, lastUserProfile, signIn, signUp, initializeAuth, showToast } = useStore();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    // Se tiver perfil salvo, começa na etapa 0 (Welcome Back), senão etapa 1 (Cadastro)
-    const [step, setStep] = useState(lastUserProfile ? 0 : 1);
+    // Modes: 'welcome' (if lastUser), 'login', 'register'
+    const [mode, setMode] = useState(lastUserProfile ? 'welcome' : 'login');
+    const [loading, setLoading] = useState(false);
 
     // Form States
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [photo, setPhoto] = useState(null);
     const [selectedType, setSelectedType] = useState('plantonista');
 
-    // Preencher dados se escolheu "Trocar de Conta" mas quer usar dados antigos? 
-    // Melhor manter limpo para novo cadastro.
+    useEffect(() => {
+        initializeAuth();
+    }, []);
 
-    // Função auxiliar para redimensionar imagem (evita estourar LocalStorage)
+    // Resize Image Logic
     const resizeImage = (file) => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -30,24 +33,17 @@ const LoginPage = () => {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const maxSize = 300; // Avatar pequeno é suficiente
-
+                    const maxSize = 300;
                     if (width > height) {
-                        if (width > maxSize) {
-                            height *= maxSize / width;
-                            width = maxSize;
-                        }
+                        if (width > maxSize) { height *= maxSize / width; width = maxSize; }
                     } else {
-                        if (height > maxSize) {
-                            width *= maxSize / height;
-                            height = maxSize;
-                        }
+                        if (height > maxSize) { width *= maxSize / height; height = maxSize; }
                     }
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compressão JPEG 70%
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
                 };
                 img.src = e.target.result;
             };
@@ -63,86 +59,61 @@ const LoginPage = () => {
                 setPhoto(resizedBase64);
             } catch (err) {
                 console.error("Erro ao processar imagem", err);
-                alert("Erro ao processar imagem. Tente uma menor.");
+                showToast("Erro ao processar imagem.", 'error');
             }
         }
     };
 
-    const handleWelcomeBack = (e) => {
-        e?.preventDefault();
-        if (lastUserProfile) {
-            try {
-                setUserName(lastUserProfile.name);
-                setUserEmail(lastUserProfile.email);
-                setUserPhoto(lastUserProfile.photo);
-                setUserType(lastUserProfile.type);
-                setTimeout(() => navigate('/'), 50);
-            } catch (error) {
-                // Fallback: Se der erro de cota, tenta entrar sem a foto
-                if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
-                    try {
-                        setUserPhoto(null); // Remove a foto da sessão atual
-                        setUserName(lastUserProfile.name);
-                        setUserEmail(lastUserProfile.email);
-                        setUserType(lastUserProfile.type);
-                        alert("Aviso: Memória do navegador cheia. Entrando sem carregar a foto.");
-                        setTimeout(() => navigate('/'), 50);
-                    } catch (retryError) {
-                        alert("Erro crítico de memória. Tente limpar dados do navegador.");
-                    }
-                } else {
-                    alert("Erro ao entrar: " + error.message);
-                }
-            }
-        }
-    };
-
-    const handleSwitchAccount = (e) => {
-        e?.preventDefault();
-        setStep(1);
-        setName('');
-        setEmail('');
-        setPhoto(null);
-    };
-
-    const handleNameSubmit = (e) => {
+    // Actions
+    const handleLogin = async (e) => {
         e.preventDefault();
-        if (name.trim()) setStep(2);
-    };
-
-    const handleEmailSubmit = (e) => {
-        e.preventDefault();
-        setStep(3);
-    };
-
-    const handleFinalSubmit = (e) => {
-        e?.preventDefault();
+        setLoading(true);
         try {
+            await signIn(email, password);
+            setTimeout(() => navigate('/'), 100);
+        } catch (error) {
+            showToast("Erro ao entrar: " + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await signUp(email, password, name);
+            // Local fallback UI update
             setUserName(name.trim());
             setUserEmail(email.trim());
-            setUserPhoto(photo);
+            if (photo) setUserPhoto(photo, selectedType);
             setUserType(selectedType);
-            setTimeout(() => navigate('/'), 50);
+
+            showToast("Conta criada! Verifique seu email.", 'success');
+            setTimeout(() => navigate('/'), 1500);
         } catch (error) {
-            if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
-                // Tenta salvar sem a foto
-                try {
-                    setUserPhoto(null);
-                    setUserName(name.trim());
-                    setUserEmail(email.trim());
-                    setUserType(selectedType);
-                    alert("Memória cheia: Sua conta foi criada, mas a foto não pode ser salva.");
-                    setTimeout(() => navigate('/'), 50);
-                } catch (retryError) {
-                    alert("Erro: O armazenamento do seu navegador está completamente cheio.");
-                }
-            } else {
-                alert("Erro ao salvar dados: " + error.message);
-            }
+            showToast("Erro ao criar conta: " + error.message, 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Render Assets
+    const handleWelcomeBack = () => {
+        try {
+            // Tenta logar apenas restaurando sessão se possível, 
+            // mas como mudamos pra supabase, ideal é pedir senha ou assumir sessão ativa.
+            // Se chegou aqui, talvez sessão expirou. Vamos mandar pro login preenchido.
+            if (lastUserProfile?.email) {
+                setEmail(lastUserProfile.email);
+                setMode('login');
+            } else {
+                navigate('/');
+            }
+        } catch (e) {
+            navigate('/');
+        }
+    };
+
     const renderProfileIcon = (type) => {
         switch (type) {
             case 'professor': return <GraduationCap size={48} />;
@@ -155,194 +126,106 @@ const LoginPage = () => {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-300 relative overflow-hidden">
 
-                {/* Etapa 0: Bem-vindo de volta */}
-                {step === 0 && lastUserProfile && (
+                {mode === 'welcome' && (
                     <div className="flex flex-col items-center animate-in slide-in-from-bottom duration-500">
                         <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center mb-6 overflow-hidden border-4 border-white shadow-lg">
-                            {lastUserProfile.photo ? (
+                            {lastUserProfile?.photo ? (
                                 <img src={lastUserProfile.photo} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="text-blue-600">
-                                    {renderProfileIcon(lastUserProfile.type)}
-                                </div>
+                                <div className="text-blue-600">{renderProfileIcon(lastUserProfile?.type)}</div>
                             )}
                         </div>
                         <h2 className="text-gray-500 text-sm font-medium uppercase tracking-wide mb-1">Bem-vindo de volta</h2>
-                        <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">
-                            {lastUserProfile.name}
-                        </h1>
+                        <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">{lastUserProfile?.name}</h1>
 
-                        <button
-                            type="button"
-                            onClick={handleWelcomeBack}
-                            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all mb-4 flex items-center justify-center gap-2"
-                        >
+                        <button onClick={handleWelcomeBack} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all mb-4 flex items-center justify-center gap-2">
                             Entrar <ArrowRight size={20} />
                         </button>
-
-                        <button
-                            onClick={handleSwitchAccount}
-                            className="text-gray-400 hover:text-gray-600 text-sm font-medium"
-                        >
-                            Usar outra conta
-                        </button>
+                        <button onClick={() => setMode('login')} className="text-gray-400 hover:text-gray-600 text-sm font-medium">Usar outra conta</button>
                     </div>
                 )}
 
-                {/* Header Comum para Cadastro */}
-                {step > 0 && (
-                    <div className="flex flex-col items-center mb-8">
-                        <div className="bg-blue-50 p-3 rounded-2xl mb-4">
-                            <h1 className="text-xl font-bold text-blue-900 tracking-tight">agend.AI</h1>
-                        </div>
-
-                        {/* Progress Dots */}
-                        <div className="flex gap-2 mb-2">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${step >= i ? 'w-6 bg-blue-500' : 'w-2 bg-gray-200'}`} />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Passo 1: Nome e Foto */}
-                {step === 1 && (
-                    <form onSubmit={handleNameSubmit} className="space-y-6 animate-in slide-in-from-right duration-300">
-                        <div className="flex flex-col items-center">
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors relative group overflow-hidden"
-                            >
-                                {photo ? (
-                                    <img src={photo} alt="Preview" className="w-full h-full object-cover" />
-                                ) : (
-                                    <Camera size={28} className="text-gray-400" />
-                                )}
-                                <div className="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center">
-                                    <Camera size={24} className="text-white" />
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-blue-500 mt-2 font-medium">
-                                Adicionar foto
-                            </button>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handlePhotoUpload}
-                                accept="image/*"
-                                className="hidden"
-                            />
+                {mode === 'login' && (
+                    <form onSubmit={handleLogin} className="space-y-6 animate-in slide-in-from-right duration-300">
+                        <div className="text-center mb-8">
+                            <h1 className="text-2xl font-bold text-gray-900">Login</h1>
+                            <p className="text-gray-500 text-sm">Entre para acessar seus plantões</p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                                Como você quer ser chamado?
-                            </label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Seu nome"
-                                className="w-full p-4 bg-gray-50 border-transparent focus:bg-white border focus:border-blue-500 rounded-2xl transition-all outline-none font-medium text-lg"
-                                required
-                                autoFocus
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="w-full py-4 bg-gray-900 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
-                        >
-                            Continuar <ArrowRight size={18} />
-                        </button>
-                    </form>
-                )}
-
-                {/* Passo 2: Email */}
-                {step === 2 && (
-                    <form onSubmit={handleEmailSubmit} className="space-y-6 animate-in slide-in-from-right duration-300">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                                Qual seu e-mail?
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="exemplo@email.com"
-                                    className="w-full p-4 pl-12 bg-gray-50 border-transparent focus:bg-white border focus:border-blue-500 rounded-2xl transition-all outline-none font-medium text-lg"
-                                    autoFocus
-                                />
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 pl-12 bg-gray-50 border border-gray-100 focus:bg-white focus:border-blue-500 rounded-xl outline-none" required />
                             </div>
-                            <p className="text-xs text-gray-400 mt-2 ml-1">Usado apenas para recuperar sua conta se precisar.</p>
                         </div>
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setStep(1)}
-                                className="px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all"
-                            >
-                                Voltar
-                            </button>
-                            <button
-                                type="submit"
-                                className="flex-1 py-4 bg-gray-900 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
-                            >
-                                Continuar <ArrowRight size={18} />
-                            </button>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 pl-12 bg-gray-50 border border-gray-100 focus:bg-white focus:border-blue-500 rounded-xl outline-none" required />
+                            </div>
+                        </div>
+
+                        <button disabled={loading} type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                            {loading ? <Loader2 className="animate-spin" /> : 'Entrar'}
+                        </button>
+
+                        <div className="text-center">
+                            <button type="button" onClick={() => setMode('register')} className="text-blue-600 text-sm font-medium hover:underline">Criar nova conta</button>
                         </div>
                     </form>
                 )}
 
-                {/* Passo 3: Tipo de Usuário */}
-                {step === 3 && (
-                    <div className="space-y-4 animate-in slide-in-from-right duration-300">
-                        <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Como você vai usar o app?</h2>
-                        <div className="grid grid-cols-1 gap-3">
-                            {[
-                                { id: 'plantonista', icon: Stethoscope, label: 'Plantonista', desc: 'Controle plantões e valor/hora', color: 'blue' },
-                                { id: 'professor', icon: GraduationCap, label: 'Professor', desc: 'Organize aulas e turmas', color: 'purple' },
-                                { id: 'casual', icon: CalendarHeart, label: 'Uso Pessoal', desc: 'Eventos e compromissos', color: 'green' }
-                            ].map((type) => (
-                                <button
-                                    key={type.id}
-                                    onClick={() => setSelectedType(type.id)}
-                                    className={`flex items-center p-4 rounded-2xl border-2 transition-all text-left group ${selectedType === type.id
-                                        ? `border-${type.color}-500 bg-${type.color}-50`
-                                        : `border-gray-50 bg-gray-50 hover:bg-white hover:border-${type.color}-200`
-                                        }`}
-                                >
-                                    <div className={`p-3 rounded-xl mr-4 transition-colors ${selectedType === type.id ? `bg-${type.color}-200 text-${type.color}-700` : 'bg-white text-gray-400 group-hover:text-gray-600'}`}>
-                                        <type.icon size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className={`font-bold ${selectedType === type.id ? `text-${type.color}-900` : 'text-gray-700'}`}>{type.label}</h3>
-                                        <p className="text-xs text-gray-500">{type.desc}</p>
-                                    </div>
-                                </button>
-                            ))}
+                {mode === 'register' && (
+                    <form onSubmit={handleRegister} className="space-y-4 animate-in slide-in-from-right duration-300">
+                        <div className="text-center mb-6">
+                            <h1 className="text-2xl font-bold text-gray-900">Criar Conta</h1>
                         </div>
 
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                type="button"
-                                onClick={() => setStep(2)}
-                                className="px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all"
-                            >
-                                Voltar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleFinalSubmit}
-                                className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-xl shadow-blue-200 hover:-translate-y-1 transition-all"
-                            >
-                                Começar
-                            </button>
+                        {/* Foto */}
+                        <div className="flex flex-col items-center">
+                            <div onClick={() => fileInputRef.current?.click()} className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors relative group overflow-hidden border-2 border-dashed border-gray-300">
+                                {photo ? <img src={photo} className="w-full h-full object-cover" /> : <Camera size={24} className="text-gray-400" />}
+                            </div>
+                            <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
                         </div>
-                    </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Nome</label>
+                                <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2 bg-gray-50 border border-gray-100 rounded-lg outline-none text-sm" required />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                                <select value={selectedType} onChange={e => setSelectedType(e.target.value)} className="w-full p-2 bg-gray-50 border border-gray-100 rounded-lg outline-none text-sm">
+                                    <option value="plantonista">Plantonista</option>
+                                    <option value="professor">Professor</option>
+                                    <option value="casual">Pessoal</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 bg-gray-50 border border-gray-100 rounded-lg outline-none text-sm" required />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Senha</label>
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 bg-gray-50 border border-gray-100 rounded-lg outline-none text-sm" required />
+                        </div>
+
+                        <button disabled={loading} type="submit" className="w-full py-3 bg-gray-900 hover:bg-black disabled:bg-gray-600 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                            {loading ? <Loader2 className="animate-spin" /> : 'Cadastrar'}
+                        </button>
+
+                        <div className="text-center">
+                            <button type="button" onClick={() => setMode('login')} className="text-gray-500 text-sm font-medium hover:underline">Já tenho conta</button>
+                        </div>
+                    </form>
                 )}
-
             </div>
         </div>
     );
