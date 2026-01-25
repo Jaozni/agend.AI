@@ -18,7 +18,6 @@ export const useStore = create(
             userPhoto: null,
             profilePhotos: {},
             userEmail: null,
-            userEmail: null,
             userType: 'plantonista',
             primaryUserType: 'plantonista', // Default fallback
 
