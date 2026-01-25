@@ -82,7 +82,7 @@ const LoginPage = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
-        // Captura valores locais
+
         const currentEmail = email;
         const currentPassword = password;
         const currentName = name;
@@ -90,28 +90,24 @@ const LoginPage = () => {
         const currentPhoto = photo;
 
         try {
-            // 1. Cria conta
-            const response = await signUp(currentEmail, currentPassword, currentName);
-            const newUser = response?.user;
+            // 1. Cria conta (Auth)
+            const { user } = await signUp(currentEmail, currentPassword, currentName);
 
-            // 2. Garante persistência do UserType no Supabase (bypass Store latency)
-            if (newUser) {
-                await supabase.from('profiles').update({
-                    settings: { primaryUserType: currentType }, // Salva JSONB
-                    user_type: currentType, // Coluna legacy
-                    username: currentName
-                }).eq('id', newUser.id);
+            // 2. Se deu certo, atualiza interface local
+            if (user) {
+                setUserName(currentName.trim());
+                setUserEmail(currentEmail.trim());
+                if (currentPhoto) setUserPhoto(currentPhoto, currentType);
+                setUserType(currentType);
+
+                // Tenta atualizar settings via store (que chama saveProfile internamente)
+                // Se falhar no backend por delay, o local já fica certo.
+                useStore.getState().updateSettings({ primaryUserType: currentType });
             }
 
-            // 3. Atualiza Store Local
-            setUserName(currentName.trim());
-            setUserEmail(currentEmail.trim());
-            if (currentPhoto) setUserPhoto(currentPhoto, currentType);
-            setUserType(currentType);
-            useStore.getState().updateSettings({ primaryUserType: currentType });
+            showToast("Conta criada! Redirecionando...", 'success');
+            setTimeout(() => navigate('/'), 1500);
 
-            showToast("Conta criada! Verifique seu email.", 'success');
-            setTimeout(() => navigate('/'), 2000);
         } catch (error) {
             console.error("Erro cadastro:", error);
             const msg = error.message || "Erro desconhecido";
