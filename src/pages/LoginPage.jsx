@@ -13,6 +13,13 @@ const LoginPage = () => {
     const [mode, setMode] = useState(lastUserProfile ? 'welcome' : 'login');
     const [loading, setLoading] = useState(false);
 
+    // Form States (Restored)
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [photo, setPhoto] = useState(null);
+    const [selectedType, setSelectedType] = useState('plantonista');
+
     // Redirect se já logado
     useEffect(() => {
         if (user) {
