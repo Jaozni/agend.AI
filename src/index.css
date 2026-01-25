@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gray-900: #111827;
+  --color-gray-800: #1f2937;
+  /* Garantindo que cores customizadas existam se necessário */
+}
+
+/* Forçando dark mode via seletor de classe */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
