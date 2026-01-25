@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
+import { supabase } from '../lib/supabase'; // Import direto para garantir
 import { Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, Lock, User, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
@@ -81,7 +82,7 @@ const LoginPage = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
-        // Captura valores do state para garantir escopo (defensivo)
+        // Captura valores locais
         const currentEmail = email;
         const currentPassword = password;
         const currentName = name;
@@ -89,30 +90,27 @@ const LoginPage = () => {
         const currentPhoto = photo;
 
         try {
-            // Cria conta
+            // 1. Cria conta
             const response = await signUp(currentEmail, currentPassword, currentName);
             const newUser = response?.user;
 
-            // Se usuário já existe, Supabase pode retornar user null mas sem erro (se confirm email on) ou user fake.
-            // Mas normalmente se tentar registrar mesmo email, ele retorna sucesso falso.
-            // Vamos assumir sucesso se não der throw.
-
-            // Força salvar o primaryType nos settings logo após criar
+            // 2. Garante persistência do UserType no Supabase (bypass Store latency)
             if (newUser) {
-                // Pequeno hack: atualiza settings com primaryUserType
+                await supabase.from('profiles').update({
+                    settings: { primaryUserType: currentType }, // Salva JSONB
+                    user_type: currentType, // Coluna legacy
+                    username: currentName
+                }).eq('id', newUser.id);
             }
 
-            // Local fallback UI update & Store update
+            // 3. Atualiza Store Local
             setUserName(currentName.trim());
             setUserEmail(currentEmail.trim());
             if (currentPhoto) setUserPhoto(currentPhoto, currentType);
-
-            // Define tipo inicial E tipo principal
             setUserType(currentType);
             useStore.getState().updateSettings({ primaryUserType: currentType });
 
             showToast("Conta criada! Verifique seu email.", 'success');
-            // Delay maior para garantir toast visivel
             setTimeout(() => navigate('/'), 2000);
         } catch (error) {
             console.error("Erro cadastro:", error);

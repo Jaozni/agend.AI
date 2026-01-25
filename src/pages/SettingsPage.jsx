@@ -5,14 +5,14 @@ import { useRef } from 'react';
 import { translations } from '../utils/translations';
 
 const SettingsPage = () => {
-    const { settings, toggleTheme, userName, setUserName, userPhoto, profilePhotos, setUserPhoto, updateSettings, showToast, userType, logout } = useStore();
+    const { settings, toggleTheme, userName, setUserName, userPhoto, profilePhotos, setUserPhoto, updateSettings, showToast, userType, signOut } = useStore();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const lang = settings?.language || 'pt';
     const t = translations[lang];
 
     const handleLogout = () => {
-        logout();
+        signOut();
         navigate('/login');
     };
 
