@@ -206,32 +206,38 @@ const SettingsPage = () => {
                     {userType === 'casual' && (t.settings?.profile_casual || 'Pessoal')}
                 </p>
 
-                {/* Seletor Rápido de Perfil */}
+                {/* Seletor Rápido de Perfil (Restrito) */}
                 <div className="flex justify-center gap-2 mb-2">
-                    {[
-                        { id: 'plantonista', icon: Stethoscope, label: t.settings?.profile_plantonista || 'Plantonista' },
-                        { id: 'professor', icon: GraduationCap, label: t.settings?.profile_professor || 'Professor' },
-                        { id: 'casual', icon: User, label: t.settings?.profile_casual || 'Pessoal' }
-                    ].map((type) => (
-                        <button
-                            key={type.id}
-                            onClick={() => {
-                                if (userType !== type.id) {
-                                    // Atualiza o tipo
-                                    useStore.getState().setUserType(type.id);
-                                    showToast(`Modo ${type.label} ativado!`, 'success');
-                                }
-                            }}
-                            className={`p-2 rounded-xl border-2 transition-all flex flex-col items-center gap-1 min-w-[80px]
+                    {(() => {
+                        // Determina o tipo principal (fallback para plantonista se não definido)
+                        const mainType = settings?.primaryUserType || 'plantonista';
+
+                        // Lista filtrada: Apenas o Principal e o Casual
+                        const availableTypes = [
+                            { id: mainType, icon: mainType === 'professor' ? GraduationCap : Stethoscope, label: mainType === 'professor' ? (t.settings?.profile_professor || 'Professor') : (t.settings?.profile_plantonista || 'Plantonista') },
+                            { id: 'casual', icon: User, label: t.settings?.profile_casual || 'Pessoal' }
+                        ];
+
+                        return availableTypes.map((type) => (
+                            <button
+                                key={type.id}
+                                onClick={() => {
+                                    if (userType !== type.id) {
+                                        useStore.getState().setUserType(type.id);
+                                        showToast(`Modo ${type.label} ativado!`, 'success');
+                                    }
+                                }}
+                                className={`p-2 rounded-xl border-2 transition-all flex flex-col items-center gap-1 min-w-[80px]
                                 ${userType === type.id
-                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300'
-                                    : 'bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400'
-                                }`}
-                        >
-                            <type.icon size={20} />
-                            <span className="text-[10px] font-bold uppercase">{type.label}</span>
-                        </button>
-                    ))}
+                                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300'
+                                        : 'bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400'
+                                    }`}
+                            >
+                                <type.icon size={20} />
+                                <span className="text-[10px] font-bold uppercase">{type.label}</span>
+                            </button>
+                        ));
+                    })()}
                 </div>
             </div>
 

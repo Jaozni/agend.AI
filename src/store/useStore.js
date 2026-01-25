@@ -18,7 +18,9 @@ export const useStore = create(
             userPhoto: null,
             profilePhotos: {},
             userEmail: null,
+            userEmail: null,
             userType: 'plantonista',
+            primaryUserType: 'plantonista', // Default fallback
 
             settings: {
                 defaultHourlyRate: 0,
@@ -126,6 +128,7 @@ export const useStore = create(
                     set({
                         userName: profile.username,
                         userType: profile.user_type || 'plantonista',
+                        primaryUserType: profile.settings?.primaryUserType || profile.user_type || 'plantonista', // Novo campo
                         userPhoto: profile.user_photo, // Legacy
                         profilePhotos: profile.profile_photos || {}, // New
                         settings: { ...get().settings, ...profile.settings },

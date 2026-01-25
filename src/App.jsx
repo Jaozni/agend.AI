@@ -13,8 +13,8 @@ import { useReminder } from './hooks/useReminder';
 
 // Componente para proteger rotas privadas
 const PrivateRoute = ({ children }) => {
-  const userName = useStore((state) => state.userName);
-  return userName ? children : <Navigate to="/login" replace />;
+  const user = useStore((state) => state.user);
+  return user ? children : <Navigate to="/login" replace />;
 };
 
 function App() {

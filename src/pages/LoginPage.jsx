@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import { Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, Lock, User, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
-    const { setUserName, setUserType, setUserEmail, setUserPhoto, lastUserProfile, signIn, signUp, initializeAuth, showToast } = useStore();
+    const { setUserName, setUserType, setUserEmail, setUserPhoto, lastUserProfile, signIn, signUp, initializeAuth, showToast, user } = useStore();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
@@ -12,12 +12,12 @@ const LoginPage = () => {
     const [mode, setMode] = useState(lastUserProfile ? 'welcome' : 'login');
     const [loading, setLoading] = useState(false);
 
-    // Form States
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [photo, setPhoto] = useState(null);
-    const [selectedType, setSelectedType] = useState('plantonista');
+    // Redirect se já logado
+    useEffect(() => {
+        if (user) {
+            navigate('/');
+        }
+    }, [user, navigate]);
 
     useEffect(() => {
         initializeAuth();
@@ -82,12 +82,25 @@ const LoginPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await signUp(email, password, name);
-            // Local fallback UI update
+            // Cria conta
+            const { user } = await signUp(email, password, name);
+
+            // Força salvar o primaryType nos settings logo após criar
+            if (user) {
+                // Pequeno hack: atualiza settings com primaryUserType
+                // Idealmente o signUp já faria isso se passasse metadata, 
+                // mas vamos usar o updateSettings do store depois de logar "virtualmente"
+                // ou chamar direto supabase
+            }
+
+            // Local fallback UI update & Store update
             setUserName(name.trim());
             setUserEmail(email.trim());
             if (photo) setUserPhoto(photo, selectedType);
+
+            // Define tipo inicial E tipo principal
             setUserType(selectedType);
+            useStore.getState().updateSettings({ primaryUserType: selectedType }); // Salva em settings jsonb
 
             showToast("Conta criada! Verifique seu email.", 'success');
             setTimeout(() => navigate('/'), 1500);
