@@ -97,31 +97,48 @@ const LoginPage = () => {
         const currentPhoto = photo;
 
         try {
-            // 1. Cria conta (Auth)
-            const { user } = await signUp(currentEmail, currentPassword, currentName);
+            // 1. Cria conta
+            const { data } = await signUp(currentEmail, currentPassword, currentName);
 
-            // 2. Se deu certo, atualiza interface local
-            if (user) {
-                setUserName(currentName.trim());
-                setUserEmail(currentEmail.trim());
-                if (currentPhoto) setUserPhoto(currentPhoto, currentType);
-                setUserType(currentType);
-
-                // Tenta atualizar settings via store (que chama saveProfile internamente)
-                // Se falhar no backend por delay, o local já fica certo.
-                useStore.getState().updateSettings({ primaryUserType: currentType });
+            // 2. Tenta logar automaticamente para garantir sessão (e verificar se precisa confirmar email)
+            // Se o signUp já logou (confirmation off), o signIn é redundante mas seguro.
+            // Se o signUp não logou (confirmation on), o signIn vai lançar erro "Email not confirmed".
+            try {
+                await signIn(currentEmail, currentPassword);
+            } catch (loginError) {
+                // Se o erro for de email não confirmado, avisar user
+                if (loginError.message.includes('confirm') || loginError.message.includes('verified')) {
+                    alert('Conta criada! Por favor, verifique seu email para ativar a conta antes de entrar.');
+                    setMode('login');
+                    setLoading(false);
+                    return;
+                }
+                // Se for outro erro de login, apenas ignora e deixa o fluxo seguir (pode já estar logado)
+                console.warn("Auto-login falhou, mas cadastro ok:", loginError);
             }
 
-            showToast("Conta criada! Redirecionando...", 'success');
-            setTimeout(() => navigate('/'), 1500);
+            // 3. Atualiza store local se tivermos sessão ou apenas para feedback
+            setUserName(currentName.trim());
+            setUserEmail(currentEmail.trim());
+            if (currentPhoto) setUserPhoto(currentPhoto, currentType);
+            setUserType(currentType);
+
+            // Persiste settings
+            useStore.getState().updateSettings({ primaryUserType: currentType });
+
+            showToast("Bem-vindo(a)!", 'success');
+            // Pequeno delay e redirect
+            setTimeout(() => navigate('/'), 1000);
 
         } catch (error) {
             console.error("Erro cadastro:", error);
             const msg = error.message || "Erro desconhecido";
+            // Alert nativo para garantir que o user veja no celular
             if (msg.includes("already registered") || msg.includes("unique constraint")) {
-                showToast("Email já cadastrado! Tente fazer login.", 'warning');
+                alert("Este email já possui conta! Redirecionando para o login...");
+                setMode('login');
             } else {
-                showToast("Erro ao criar conta: " + msg, 'error');
+                alert("Erro ao criar conta: " + msg);
             }
         } finally {
             setLoading(false);
