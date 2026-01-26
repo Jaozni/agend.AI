@@ -209,14 +209,24 @@ const SettingsPage = () => {
                 {/* Seletor Rápido de Perfil (Restrito) */}
                 <div className="flex justify-center gap-2 mb-2">
                     {(() => {
-                        // Determina o tipo principal (fallback para plantonista se não definido)
+                        // Determina o tipo principal (quem criou a conta)
                         const mainType = settings?.primaryUserType || 'plantonista';
 
-                        // Lista filtrada: Apenas o Principal e o Casual
-                        const availableTypes = [
-                            { id: mainType, icon: mainType === 'professor' ? GraduationCap : Stethoscope, label: mainType === 'professor' ? (t.settings?.profile_professor || 'Professor') : (t.settings?.profile_plantonista || 'Plantonista') },
-                            { id: 'casual', icon: User, label: t.settings?.profile_casual || 'Pessoal' }
-                        ];
+                        // Se o usuário se cadastrou como "Pessoal" (Casual), ele não quer ver Plantonista/Professor.
+                        // Se ele for Plantonista/Professor, ele pode querer ver o Pessoal também.
+                        let availableTypes = [];
+
+                        if (mainType === 'casual') {
+                            availableTypes = [
+                                { id: 'casual', icon: User, label: t.settings?.profile_casual || 'Pessoal' }
+                            ];
+                        } else {
+                            // Se for Plantonista ou Professor, mostra o principal + Pessoal
+                            availableTypes = [
+                                { id: mainType, icon: mainType === 'professor' ? GraduationCap : Stethoscope, label: mainType === 'professor' ? (t.settings?.profile_professor || 'Professor') : (t.settings?.profile_plantonista || 'Plantonista') },
+                                { id: 'casual', icon: User, label: t.settings?.profile_casual || 'Pessoal' }
+                            ];
+                        }
 
                         return availableTypes.map((type) => (
                             <button
