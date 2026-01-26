@@ -1,8 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { supabase } from '../lib/supabase'; // Import direto para garantir
-import { Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, Lock, User, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Stethoscope, GraduationCap, CalendarHeart, Camera, Mail, ArrowRight, Lock, User, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
+
+const AlertModal = ({ isOpen, type, title, message, onClose, onConfirm, confirmText }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}></div>
+            <div className="relative bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-xl flex flex-col p-6 animate-in zoom-in-95 duration-200">
+                <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                    {type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+                </div>
+                <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">{title}</h3>
+                <p className="text-center text-gray-500 dark:text-gray-400 text-sm mb-6">{message}</p>
+                <div className="flex gap-2">
+                    {onClose && (
+                        <button onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors">
+                            Fechar
+                        </button>
+                    )}
+                    <button onClick={onConfirm} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 transition-colors">
+                        {confirmText || 'OK'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const LoginPage = () => {
     const { setUserName, setUserType, setUserEmail, setUserPhoto, lastUserProfile, signIn, signUp, initializeAuth, showToast, user } = useStore();
@@ -12,6 +39,9 @@ const LoginPage = () => {
     // Modes: 'welcome' (if lastUser), 'login', 'register'
     const [mode, setMode] = useState(lastUserProfile ? 'welcome' : 'login');
     const [loading, setLoading] = useState(false);
+
+    // Alert Modal State
+    const [alertState, setAlertState] = useState({ isOpen: false, type: 'success', title: '', message: '', action: null });
 
     // Form States (Restored)
     const [name, setName] = useState('');
@@ -171,6 +201,16 @@ const LoginPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <AlertModal
+                isOpen={alertState.isOpen}
+                type={alertState.type}
+                title={alertState.title}
+                message={alertState.message}
+                confirmText={alertState.confirmText}
+                onConfirm={alertState.action}
+                onClose={alertState.onClose}
+            />
+
             <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-300 relative overflow-hidden">
 
                 {mode === 'welcome' && (

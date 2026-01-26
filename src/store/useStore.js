@@ -66,8 +66,14 @@ export const useStore = create(
 
                 // Listener de mudanças
                 supabase.auth.onAuthStateChange(async (_event, session) => {
-                    set({ session, user: session?.user || null });
-                    if (session) {
+                    const authUser = session?.user;
+                    set({ session, user: authUser });
+
+                    if (authUser) {
+                        // Tenta definir nome via metadata imediatamente se não tivermos
+                        if (!get().userName && authUser.user_metadata?.full_name) {
+                            set({ userName: authUser.user_metadata.full_name });
+                        }
                         get().fetchData();
                     } else {
                         // Limpar dados sensiveis ao sair?
