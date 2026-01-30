@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Clock, CalendarCheck, DollarSign, RotateCw, CalendarDays, Pencil } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInCalendarDays } from 'date-fns';
+import { parseLocalDate } from '../utils/calculations';
 
 const days = [
     { key: 'monday', label: 'Segunda-feira' },
@@ -74,9 +75,20 @@ const ShiftRoutineModal = ({ isOpen, onClose }) => {
 
     // Handlers Rotativo
     const handleChangeRotating = (field, value) => {
+        let updatedValue = value;
+
+        // Se for data, garantir que não volta o dia (seta meio dia)
+        if (field === 'startDate' && value) {
+            // value vem do input como "YYYY-MM-DD"
+            // Força meio dia para evitar UTC timezone shift (-3h etc)
+            // Se salvar apenas "YYYY-MM-DD", o new Date() assume UTC 00:00 (dia anterior de noite no Brasil)
+            // Adicionar hora explícita
+            updatedValue = value; // Mantém string original para o input
+        }
+
         setLocalRotating(prev => ({
             ...prev,
-            [field]: value // Armazena como string para permitir edição livre
+            [field]: updatedValue // Armazena como string para permitir edição livre
         }));
     };
 
@@ -117,14 +129,15 @@ const ShiftRoutineModal = ({ isOpen, onClose }) => {
         onClose();
     };
 
+
+
     // Estimativa de escalas no mês atual
     const calculateEstimatedShifts = () => {
         if (!localRotating.startDate) return 0;
-        const start = new Date(localRotating.startDate);
+        const start = parseLocalDate(localRotating.startDate);
         const today = new Date();
         const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         let count = 0;
-        let current = new Date(start);
 
         // Ciclo em dias
         let cycle = 2; // 12x36 default
@@ -133,12 +146,14 @@ const ShiftRoutineModal = ({ isOpen, onClose }) => {
         if (localRotating.type === '24x72') cycle = 4;
         if (localRotating.type === 'custom') cycle = parseInt(localRotating.customCycle) || 5;
 
-        // Avançar até o fim do mês
-        while (current <= endMonth) {
-            if (current >= new Date(today.getFullYear(), today.getMonth(), 1)) {
+        // Itera dia a dia do MÊS ATUAL para ser preciso
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        for (let d = startOfMonth; d <= endMonth; d.setDate(d.getDate() + 1)) {
+            const diffDays = differenceInCalendarDays(d, start);
+            if (diffDays >= 0 && diffDays % cycle === 0) {
                 count++;
             }
-            current.setDate(current.getDate() + cycle);
         }
         return count;
     };

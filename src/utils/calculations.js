@@ -16,3 +16,11 @@ export const calculateMonthlyEarnings = (shifts, currentMonth) => {
     // TODO: Implementar lógica de data completa
     return shifts.reduce((acc, shift) => acc + (shift.earnings || 0), 0);
 };
+
+export const parseLocalDate = (dateString) => {
+    if (!dateString) return new Date();
+    const datePart = dateString.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    // Force NOON (12:00) to avoid midnight timezone cliff
+    return new Date(year, month - 1, day, 12, 0, 0);
+};

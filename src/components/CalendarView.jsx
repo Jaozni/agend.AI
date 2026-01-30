@@ -10,15 +10,17 @@ import {
     subMonths,
     isSameMonth,
     isSameDay,
-    isToday
+    isToday,
+    differenceInCalendarDays
 } from 'date-fns';
 import { ptBR, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { getTerms } from '../utils/textAdapters';
+import { parseLocalDate } from '../utils/calculations';
 
 const CalendarView = ({ shifts = [], events = [], onDateSelect, selectedDate }) => {
-    const { userType, weeklyRoutine, shiftRoutine, settings } = useStore();
+    const { userType, weeklyRoutine, shiftRoutine, rotatingRoutine, settings } = useStore();
     const lang = settings?.language || 'pt';
     const terms = getTerms(userType, lang);
     const dateLocale = lang === 'en' ? enUS : ptBR;
@@ -62,18 +64,15 @@ const CalendarView = ({ shifts = [], events = [], onDateSelect, selectedDate }) 
             }
             // Prioridade 2: Plantonista
             else if (userType === 'plantonista') {
-                const { shiftRoutine, rotatingRoutine } = useStore.getState();
-
                 // 2a. Escala Rotativa (Se ativa)
                 if (rotatingRoutine?.active && rotatingRoutine.startDate) {
-                    const start = new Date(rotatingRoutine.startDate);
-                    // Normalizar datas para evitar problemas de hora
-                    start.setHours(0, 0, 0, 0);
-                    const current = new Date(day);
-                    current.setHours(0, 0, 0, 0);
+                    // CALCULO ROBUSTO COM date-fns
+                    // parseLocalDate garante que 2026-02-01 vire 01/02 00:00 Local
+                    const startLocal = parseLocalDate(rotatingRoutine.startDate);
+                    const currentLocal = day; // day já vem do calendário como data local (00:00)
 
-                    const diffTime = current.getTime() - start.getTime();
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    // differenceInCalendarDays retorna inteiro (ex: 0, 1, -1) ignorando horas
+                    const diffDays = differenceInCalendarDays(currentLocal, startLocal);
 
                     if (diffDays >= 0) {
                         let cycle = 2; // Default 12x36 (2 dias)
@@ -189,6 +188,11 @@ const CalendarView = ({ shifts = [], events = [], onDateSelect, selectedDate }) 
                         </div>
                     );
                 })}
+            </div>
+
+            {/* DEBUG DISCRETO - Versão: {Date.now()} */}
+            <div className="text-[10px] text-gray-300 text-center p-1">
+                v{new Date().toLocaleTimeString()} - {userType} | {rotatingRoutine?.startDate}
             </div>
         </div>
     );

@@ -225,10 +225,25 @@ const LoginPage = () => {
                         <h2 className="text-gray-500 text-sm font-medium uppercase tracking-wide mb-1">Bem-vindo de volta</h2>
                         <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">{lastUserProfile?.name}</h1>
 
-                        <button onClick={handleWelcomeBack} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all mb-4 flex items-center justify-center gap-2">
-                            Entrar <ArrowRight size={20} />
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleWelcomeBack();
+                            }}
+                            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all mb-4 flex items-center justify-center relative overflow-hidden z-10"
+                        >
+                            <span className="mr-2">Entrar</span>
+                            <ArrowRight size={20} />
                         </button>
-                        <button onClick={() => setMode('login')} className="text-gray-400 hover:text-gray-600 text-sm font-medium">Usar outra conta</button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setMode('login');
+                            }}
+                            className="text-gray-400 hover:text-gray-600 text-sm font-medium relative z-10"
+                        >
+                            Usar outra conta
+                        </button>
                     </div>
                 )}
 
